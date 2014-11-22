@@ -1,0 +1,9 @@
+{
+	"name": "SafeSSL",
+	"version": "1.0.0",
+	"description": "Tell if a domain supports HTTPS",
+	"repository": "https://github.com/NVP12345/SafeSSL.git",
+	"dependencies": {
+		"request": "*"
+	}
+}
