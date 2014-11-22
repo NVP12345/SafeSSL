@@ -3,8 +3,7 @@
     <head>
         <title>SafeSSL Configuration</title>    
     </head>
-    <body>      
-        <script src="popup.js"></script>
+    <body>
         <form id="configuration-form">
             <table>
                 <tr>
@@ -20,11 +19,69 @@
                         &nbsp;
                     </td>
                     <td>
-                        <input type="button" value="Save" id="save-button"/>
+                        <input type="button" value="Save" id="save-config-button"/>
                     </td>
                 </tr>
             </table>
         </form>
+        <hr/>
+        <form id="add-domain">
+            <table>
+                <tr>
+                    <th>Domain</th>
+                    <th>HTTPS supported</th>
+                </tr>
+                <tr>
+                    <td>
+                        <input type="text" name="domain" id="domain"/>
+                    </td>
+                    <td>
+                        <select name="https-supported-value" id="https-supported-value">
+                            <option value="yes" selected>Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        &nbsp;
+                    </td>
+                    <td>
+                        <input type="button" value="Save" id="save-domain-button"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <hr/>
+        <form id="query-domain">
+            <table>
+                <tr>
+                    <th>Domain</th>                
+                </tr>
+                <tr>
+                    <td>
+                        <input type="text" name="domain-to-query" id="domain-to-query"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td id="query-notification"></td>
+                </tr>
+                <tr>
+                    <td>
+                        <input type="button" value="Query" id="query-domain-button"/>
+                        &nbsp;
+                        <input type="reset" value="Clear" id="clear-query-domain-button"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <hr/>
+        <div>
+            <input type="button" value="Clear cache" id="clear-cache-button"/>
+        </div>
+        <div id="notification-center"></div>
+        
+        <script src="popup.js"></script>
     </body>
 </html>
 

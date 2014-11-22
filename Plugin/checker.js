@@ -138,3 +138,11 @@ chrome.webRequest.onBeforeRequest.addListener(
         {urls: ["http://*/*"]},
         ["blocking"]
     );
+
+function getCache(){
+    return urlCache;
+}
+
+function getConfig(){
+    return config;
+}
