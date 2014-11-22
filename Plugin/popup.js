@@ -13,11 +13,13 @@ setTimeout(function() {
             conf = bgPage.getConfig();
 
 
+    timeoutField.value = conf.cacheTimeout / 1000;
+
     saveButton.addEventListener('click', function() {
         var timeout = timeoutField.value;
 
         if (timeout && /^[0-9]+$/.test(timeout)) {
-            conf['cacheTimeout'] = timeoutField.value
+            conf['cacheTimeout'] = parseInt(timeoutField.value) * 1000;
         }
 
         notify('Configuration saved');
