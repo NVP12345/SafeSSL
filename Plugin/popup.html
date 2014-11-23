@@ -1,11 +1,42 @@
 <!doctype html>
 <html>
     <head>
-        <title>SafeSSL Configuration</title>    
+        <title>SafeSSL Configuration</title>
+        <style>
+            body{
+                width: 300px;
+            }
+            input[type=text]{
+                width: 100px;
+            }
+            input.domain{
+                width: 200px;
+            }
+        </style>
     </head>
     <body>
         <form id="configuration-form">
             <table>
+                <tr>
+                    <td>
+                        <label for="enabled" title="Enable/Disable">
+                            Enabled
+                        </label>
+                    </td>
+                    <td>
+                        <input type="checkbox" name="enabled" id="enabled"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="enabled-404" title="Enable redirect back to http when a redirected request to https returns 404">
+                            Redirect to http on 404
+                        </label>
+                    </td>
+                    <td>
+                        <input type="checkbox" name="enabled-404" id="enabled-404"/>
+                    </td>
+                </tr>
                 <tr>
                     <td>
                         <label for="timeout" title="Time the records should stay in the cache">
@@ -45,7 +76,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <input type="text" name="domain" id="domain"/>
+                        <input type="text" name="domain" id="domain" class="domain"/>
                     </td>
                     <td>
                         <select name="https-supported-value" id="https-supported-value">
@@ -72,7 +103,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <input type="text" name="domain-to-query" id="domain-to-query"/>
+                        <input type="text" name="domain-to-query" id="domain-to-query" class="domain"/>
                     </td>
                 </tr>
                 <tr>

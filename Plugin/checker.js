@@ -19,7 +19,6 @@ function parseUri(str) {
 
     return uri;
 }
-;
 
 parseUri.options = {
     strictMode: false,
@@ -135,8 +134,9 @@ chrome.tabs.onRemoved.addListener(onRemovedListener);
 if (!config) {
     config = {
         enabled: true,
+        enabled404: true,
         cacheTimeout: 86400000,
-        redirectTimeout: 3000
+        redirectTimeout: 3000,
     };
     //localStorage.setItem("config", JSON.stringify(config));
 }
@@ -154,8 +154,12 @@ if (!config) {
  * inject malicious code to change for example all urls to http using javascript.
  * Once the user makes the request, we will redirect it again to https so 
  * we should be safe in the sslstrip side.
- */ 
+ */
 chrome.webRequest.onHeadersReceived.addListener(function(details) {
+    if (!config.enabled || !config.enabled404) {
+        return {cancel: false};
+    }
+
     var url = details.url,
             statusLine = details.statusLine,
             numberRegex = /HTTP\/[01]\.[019]\s([0-9]+)\s.*/,
@@ -179,6 +183,10 @@ chrome.webRequest.onHeadersReceived.addListener(function(details) {
 
 chrome.webRequest.onBeforeRequest.addListener(
         function(details) {
+            if (!config.enabled) {
+                return {cancel: false};
+            }
+
             var url = details.url,
                     parsedUrl = parseUri(url),
                     redirectUrl,
@@ -242,7 +250,7 @@ chrome.webRequest.onBeforeRequest.addListener(
              * redirected it. In this case, this request is sent again through 
              * http to see if we can get the resource.
              */
-            if(redirectedRequests[details.requestId]){
+            if (config.enabled404 && redirectedRequests[details.requestId]) {
                 delete redirectedRequests[details.requestId];
                 return {cancel: false};
             }
@@ -250,7 +258,10 @@ chrome.webRequest.onBeforeRequest.addListener(
 
             if (isHttpsEnabled(parsedUrl.host)) {
                 redirectUrl = url.replace("http", "https");
-                redirectedRequests[details.requestId] = true;
+
+                if (config.enabled404) {
+                    redirectedRequests[details.requestId] = true;
+                }
 
                 if (urlChange) {
                     httpHistory[tabId][urlNoProto] = setTimeout(function() {

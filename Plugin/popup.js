@@ -1,5 +1,7 @@
 setTimeout(function() {
     var bgPage = chrome.extension.getBackgroundPage(),
+            enabledCheckbox = document.getElementById('enabled'),
+            enabled404Checkbox = document.getElementById('enabled-404'),
             saveButton = document.getElementById('save-config-button'),
             timeoutField = document.getElementById('timeout'),
             redirectTimeoutField = document.getElementById('redirect-timeout'),
@@ -16,6 +18,40 @@ setTimeout(function() {
 
     timeoutField.value = conf.cacheTimeout / 1000;
     redirectTimeoutField.value = conf.redirectTimeout;
+    enabledCheckbox.checked = conf.enabled;
+    enabled404Checkbox.checked = conf.enabled404;
+
+    enableDisableInputs(conf.enabled);
+
+    enabledCheckbox.addEventListener('change', function() {
+        if (enabledCheckbox.checked) {
+            conf.enabled = true;
+        } else {
+            conf.enabled = false;
+        }
+        
+        enableDisableInputs(conf.enabled);
+    });
+
+    enabled404Checkbox.addEventListener('change', function() {
+        if (enabled404Checkbox.checked) {
+            conf.enabled404 = true;
+        } else {
+            conf.enabled404 = false;
+        }
+    });
+
+
+    function enableDisableInputs(enabled) {
+        var inputs = document.getElementsByTagName('input'),
+                i;
+
+        for (i = 0; i < inputs.length; i++) {
+            inputs[i].disabled = !enabled;
+        }
+
+        enabledCheckbox.disabled = false;
+    }
 
     saveButton.addEventListener('click', function() {
         var timeout = timeoutField.value,
@@ -26,14 +62,14 @@ setTimeout(function() {
         if (timeout && /^[0-9]+$/.test(timeout)) {
             conf['cacheTimeout'] = parseInt(timeoutField.value) * 1000;
             notification.push('Cache timeout saved.');
-        }else{
+        } else {
             notification.push('Cache timeout save failed.');
         }
-        
-        if(redirectTimeout && /^[0-9]+$/.test(redirectTimeout)){
+
+        if (redirectTimeout && /^[0-9]+$/.test(redirectTimeout)) {
             conf['redirectTimeout'] = parseInt(redirectTimeout);
             notification.push('Redirect timeout saved');
-        }else{
+        } else {
             notification.push('Redirect timeout save failed');
         }
 
