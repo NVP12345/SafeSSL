@@ -142,8 +142,7 @@ if (!config) {
 }
 
 /*
- * Check if a request for something that is not the main_frame or an AJAX 
- * request (images, stylesheets, scripts, etc) returned a 404. If it did, we 
+ * Check if a request returned a 404. If it did, we 
  * check to see if we redirected the request and if we did, that could mean that
  * the resource is only available through http. We redirect to http. 
  * 
@@ -165,9 +164,9 @@ chrome.webRequest.onHeadersReceived.addListener(function(details) {
             numberRegex = /HTTP\/[01]\.[019]\s([0-9]+)\s.*/,
             number;
 
-    if (details.type == "main_frame" || details.type == 'xmlhttprequest' || details.type == 'other') {
-        return;
-    }
+//    if (details.type == "main_frame" || details.type == 'xmlhttprequest' || details.type == 'other') {
+//        return;
+//    }
 
     number = numberRegex.exec(statusLine);
 

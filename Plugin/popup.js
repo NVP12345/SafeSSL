@@ -24,21 +24,30 @@ setTimeout(function() {
     enableDisableInputs(conf.enabled);
 
     enabledCheckbox.addEventListener('change', function() {
+        var msg = '';
         if (enabledCheckbox.checked) {
-            conf.enabled = true;
+            conf.enabled = true;            
+            msg = "SafeSSL enabled";
         } else {
             conf.enabled = false;
+            msg = "SafeSSL disabled";
         }
         
         enableDisableInputs(conf.enabled);
+        notify(msg);
     });
 
     enabled404Checkbox.addEventListener('change', function() {
+        var msg = '';
         if (enabled404Checkbox.checked) {
             conf.enabled404 = true;
+            msg = 'Redirect to http on 404 enabled';
         } else {
             conf.enabled404 = false;
+            msg = 'Redirect to http on 404 disabled';
         }
+        
+        notify(msg);
     });
 
 
