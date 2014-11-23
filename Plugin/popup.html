@@ -8,10 +8,22 @@
             <table>
                 <tr>
                     <td>
-                        <label for="timeout">Timeout (s)</label>
+                        <label for="timeout" title="Time the records should stay in the cache">
+                            Cache timeout (s)
+                        </label>
                     </td>
                     <td>
                         <input type="text" name="timeout" id="timeout" value=""/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="redirect-timeout" title="Time to wait to see if two requests to the same site are issued after being redirected">
+                            Redirect timeout (ms)
+                        </label>
+                    </td>
+                    <td>
+                        <input type="text" name="redirect-timeout" id="redirect-timeout" value=""/>
                     </td>
                 </tr>
                 <tr>

@@ -2,6 +2,7 @@ setTimeout(function() {
     var bgPage = chrome.extension.getBackgroundPage(),
             saveButton = document.getElementById('save-config-button'),
             timeoutField = document.getElementById('timeout'),
+            redirectTimeoutField = document.getElementById('redirect-timeout'),
             clearCacheButton = document.getElementById('clear-cache-button'),
             saveDomainButton = document.getElementById('save-domain-button'),
             domainInput = document.getElementById('domain'),
@@ -14,15 +15,29 @@ setTimeout(function() {
 
 
     timeoutField.value = conf.cacheTimeout / 1000;
+    redirectTimeoutField.value = conf.redirectTimeout;
 
     saveButton.addEventListener('click', function() {
-        var timeout = timeoutField.value;
+        var timeout = timeoutField.value,
+                redirectTimeout = redirectTimeoutField.value,
+                notification = [];
+
 
         if (timeout && /^[0-9]+$/.test(timeout)) {
             conf['cacheTimeout'] = parseInt(timeoutField.value) * 1000;
+            notification.push('Cache timeout saved.');
+        }else{
+            notification.push('Cache timeout save failed.');
+        }
+        
+        if(redirectTimeout && /^[0-9]+$/.test(redirectTimeout)){
+            conf['redirectTimeout'] = parseInt(redirectTimeout);
+            notification.push('Redirect timeout saved');
+        }else{
+            notification.push('Redirect timeout save failed');
         }
 
-        notify('Configuration saved');
+        notify(notification.join('<br/>'));
     });
 
     clearCacheButton.addEventListener('click', function() {

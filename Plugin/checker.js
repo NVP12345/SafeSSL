@@ -79,6 +79,7 @@ function checkHttpsCapability(host) {
     };
 
     xhr.onerror = function(e) {
+        console.log('Error');
         httpsEnabled = false;
     };
 
@@ -109,7 +110,8 @@ var config = JSON.parse(localStorage.getItem("config")),
         urlCache = JSON.parse(localStorage.getItem("urlCache")) || {},
         httpHistory = {},
         tabsRedirects = {},
-        tabs = {};
+        tabs = {},
+        redirectedRequests = {};
 
 // Get all existing tabs
 chrome.tabs.query({}, function(results) {
@@ -133,10 +135,47 @@ chrome.tabs.onRemoved.addListener(onRemovedListener);
 if (!config) {
     config = {
         enabled: true,
-        cacheTimeout: 86400000
+        cacheTimeout: 86400000,
+        redirectTimeout: 3000
     };
     //localStorage.setItem("config", JSON.stringify(config));
 }
+
+/*
+ * Check if a request for something that is not the main_frame or an AJAX 
+ * request (images, stylesheets, scripts, etc) returned a 404. If it did, we 
+ * check to see if we redirected the request and if we did, that could mean that
+ * the resource is only available through http. We redirect to http. 
+ * 
+ * Note that the attacker can't forge this response because the content is still 
+ * going through https. An attacker could still do some damage with pages that 
+ * have this problem. For example, if a script is only accessible through http, 
+ * an attacker might wait until the script is request through http and he can 
+ * inject malicious code to change for example all urls to http using javascript.
+ * Once the user makes the request, we will redirect it again to https so 
+ * we should be safe in the sslstrip side.
+ */ 
+chrome.webRequest.onHeadersReceived.addListener(function(details) {
+    var url = details.url,
+            statusLine = details.statusLine,
+            numberRegex = /HTTP\/[01]\.[019]\s([0-9]+)\s.*/,
+            number;
+
+    if (details.type == "main_frame" || details.type == 'xmlhttprequest' || details.type == 'other') {
+        return;
+    }
+
+    number = numberRegex.exec(statusLine);
+
+    if (number) {
+        number = parseInt(number[1]);
+
+        if (number == 404 && redirectedRequests[details.requestId]) {
+            return {redirectUrl: url.replace("https", "http")};
+        }
+    }
+
+}, {urls: ["https://*/*"]}, ["responseHeaders", 'blocking']);
 
 chrome.webRequest.onBeforeRequest.addListener(
         function(details) {
@@ -146,7 +185,7 @@ chrome.webRequest.onBeforeRequest.addListener(
                     ipRegex = /^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))$/,
                     tabId = details.tabId,
                     tab = tabs[tabId],
-                    referer,
+                    urlChange = false,
                     urlNoProto = url.replace("http://", "").replace("https://", "");
 
 
@@ -163,19 +202,15 @@ chrome.webRequest.onBeforeRequest.addListener(
                 if (!tabsRedirects[tabId]) {
                     tabsRedirects[tabId] = {preventRedirects: false, oldUrl: null};
                 }
-                
+
                 if (!httpHistory[tabId]) {
                     httpHistory[tabId] = {};
                 }
 
                 if (httpHistory[tabId][urlNoProto]) {
                     tabsRedirects[tabId].preventRedirects = true;
-                    console.log('Prevented1');
                     return {cancel: false};
                 }
-
-
-                console.log(details.type, tabsRedirects[tabId].oldUrl, urlNoProto);
                 /*
                  * Redirects are prevented when we go to a site (url bar changes)
                  */
@@ -183,11 +218,7 @@ chrome.webRequest.onBeforeRequest.addListener(
                     if (tabsRedirects[tabId].oldUrl != urlNoProto) {
                         tabsRedirects[tabId].preventRedirects = false;
                         tabsRedirects[tabId].oldUrl = urlNoProto;
-                        
-                        httpHistory[tabId][urlNoProto] = setTimeout(function() {
-                            httpHistory[tabId][urlNoProto] = null;
-                            delete httpHistory[tabId][urlNoProto];
-                        }, 3000);
+                        urlChange = true;
                     }
                 }
 
@@ -201,13 +232,32 @@ chrome.webRequest.onBeforeRequest.addListener(
                  * 
                  * Example www.amazon.com
                  */
-                if (tabsRedirects[tabId].preventRedirects) {                    
+                if (tabsRedirects[tabId].preventRedirects) {
                     return {cancel: false};
                 }
             }
 
+            /*
+             * This happens if there was a 404 in this request and we had 
+             * redirected it. In this case, this request is sent again through 
+             * http to see if we can get the resource.
+             */
+            if(redirectedRequests[details.requestId]){
+                delete redirectedRequests[details.requestId];
+                return {cancel: false};
+            }
+
+
             if (isHttpsEnabled(parsedUrl.host)) {
                 redirectUrl = url.replace("http", "https");
+                redirectedRequests[details.requestId] = true;
+
+                if (urlChange) {
+                    httpHistory[tabId][urlNoProto] = setTimeout(function() {
+                        httpHistory[tabId][urlNoProto] = null;
+                        delete httpHistory[tabId][urlNoProto];
+                    }, config.redirectTimeout);
+                }
             } else {
                 return {cancel: false};
             }
