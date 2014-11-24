@@ -180,6 +180,33 @@ chrome.webRequest.onHeadersReceived.addListener(function(details) {
 
 }, {urls: ["https://*/*"]}, ["responseHeaders", 'blocking']);
 
+/*
+ * Passively record https urls whose responses were 200. This means that these 
+ * servers accept https. It's only done for 200's but could be done for every
+ * status code, after all, the server answered using https regardless of the 
+ * code. We don't put the blocking directive to avoid delaying the request
+ */ 
+chrome.webRequest.onHeadersReceived.addListener(function(details) {
+    if (!config.enabled) {
+        return;
+    }
+    var url = details.url,
+            parsedUrl = parseUri(url),
+            statusLine = details.statusLine,
+            numberRegex = /HTTP\/[01]\.[019]\s([0-9]+)\s.*/,
+            number;
+
+    number = numberRegex.exec(statusLine);
+
+    if (number) {
+        number = parseInt(number[1]);
+        if (number == 200) {
+            addOrUpdateCache(parsedUrl.host, true);
+        }
+    }
+
+}, {urls: ["https://*/*"]}, ["responseHeaders"]);
+
 chrome.webRequest.onBeforeRequest.addListener(
         function(details) {
             if (!config.enabled) {
