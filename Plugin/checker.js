@@ -52,7 +52,7 @@ function checkHttpsCapability(host) {
             httpsEnabled;
 
     // Make synchronouse https request to our server
-    xhr.open("POST", "http://nicolasmesa.co:8080", false);
+    xhr.open("POST", "http://localhost:8080", false);
     xhr.setRequestHeader("Content-Type", "Application/json");
 
     params.host = host;

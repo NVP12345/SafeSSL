@@ -1,13 +1,33 @@
 var http = require('http'),
         url = require('url'),
         request = require('request'),
+        port = process.argv[2] || 8080,
         urlCache = {},
-        config = {cacheTimeout: 864000};
+        config = {
+            cacheTimeout: 864000,
+            /*
+             * Server domains and ports including the server running this code.  
+             */
+            servers: [
+                'localhost:8080',
+                'localhost:8081',
+                'localhost:8082',
+                'localhost:8083',
+            ],
+            /*
+             * When this server checks if a site runs https and it doesn't, it 
+             * will ask another server. That server will ask another and another
+             * until either this threshold is met, one of the servers returns 
+             * true or there are no more servers
+             */
+            maxRecursion: 3
+        };
 
-function isHttpsEnabled(host, res) {
+function isHttpsEnabled(host, res, servers, maxRecursion) {
     var httpsEnabled,
             cache = urlCache[host],
-            timestamp = (new Date).getTime();
+            timestamp = (new Date).getTime(),
+            missingServers = arrayDifference(config.servers, servers);
 
     if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
         httpsEnabled = urlCache[host].httpsEnabled;
@@ -37,13 +57,71 @@ function isHttpsEnabled(host, res) {
                 httpsEnabled = false;
             }
 
-            addOrUpdateCache(host, httpsEnabled);
-            response(res, httpsEnabled, host);
-            console.log(host + ": " + httpsEnabled);
+
+            if (httpsEnabled || missingServers.length == 0 || maxRecursion == 0) {
+                addOrUpdateCache(host, httpsEnabled);
+                response(res, httpsEnabled, host);
+                console.log(host + ": " + httpsEnabled);
+
+            } else {
+                servers.push(missingServers[0]);
+                askAnotherServer(host, res, servers, maxRecursion);
+            }
         });
     }
 }
 
+function askAnotherServer(host, res, servers, maxRecursion) {
+    var httpsEnabled = false,
+            url = 'http://' + servers[servers.length - 1];
+
+    maxRecursion--;
+
+    request({
+        method: 'POST',
+        url: url,
+        followRedirect: function(intermediateResponse) {
+            return true;
+        },
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
+        },
+        timeout: 3000,
+        json: {
+            host: host,
+            servers: servers,
+            maxRecursion: maxRecursion
+        }
+    }, function(err, re, body) {
+        var body;
+        /* Shouldn't happen */
+        if (err) {
+            httpsEnabled = false;
+        } else {
+            if (body.useHttps) {
+                httpsEnabled = true;
+            }
+        }
+
+
+        addOrUpdateCache(host, httpsEnabled);
+        response(res, httpsEnabled, host);
+        console.log(host + " (other server): " + httpsEnabled);
+
+    });
+}
+
+function arrayDifference(arr1, arr2) {
+    var ret = [];
+
+    arr1.forEach(function(key) {
+        if (-1 === arr2.indexOf(key)) {
+            ret.push(key);
+        }
+    }, this);
+
+    return ret;
+}
 
 function clearCache() {
     urlCache = {};
@@ -72,13 +150,28 @@ var requestListener = function(req, res) {
 
         req.on("end", function() {
             var post = JSON.parse(body),
-                    host = post.host;
+                    /*
+                     * Little hack. We should get this name from somewhere else
+                     */
+                    server = req.headers.host,
+                    host = post.host,
+                    servers = post.servers || [],
+                    maxRecursion = post.maxRecursion;
 
-            isHttpsEnabled(host, res);
+
+            if (servers.length == 0) {
+                /*
+                 * Add myself to the server list
+                 */
+                servers.push(server);
+                maxRecursion = config.maxRecursion;
+            }
+
+            isHttpsEnabled(host, res, servers, maxRecursion);
         });
 
     }
 }
 
 var server = http.createServer(requestListener);
-server.listen(8080);
+server.listen(port);
