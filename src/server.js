@@ -10,9 +10,7 @@ var http = require('http'),
              */
             servers: [
                 'localhost:8080',
-                'localhost:8081',
-                'localhost:8082',
-                'localhost:8083',
+                'nicolasmesa.co:8080'
             ],
             /*
              * When this server checks if a site runs https and it doesn't, it 
@@ -20,7 +18,7 @@ var http = require('http'),
              * until either this threshold is met, one of the servers returns 
              * true or there are no more servers
              */
-            maxRecursion: 1
+            maxRecursion: 3
         };
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
@@ -101,10 +99,14 @@ function askAnotherServer(host, res, servers, maxRecursion) {
                 maxRecursion++;
                 servers.push(missingServers[0]);
                 askAnotherServer(host, res, servers, maxRecursion);
-                return;
-            } else{
+            } else {
                 httpsEnabled = false;
+
+                addOrUpdateCache(host, httpsEnabled);
+                response(res, httpsEnabled, host);
+                console.log(host + ": " + httpsEnabled);
             }
+            return;
         } else {
             if (body.useHttps) {
                 httpsEnabled = true;
