@@ -20,7 +20,7 @@ var http = require('http'),
              * until either this threshold is met, one of the servers returns 
              * true or there are no more servers
              */
-            maxRecursion: 3
+            maxRecursion: 1
         };
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
@@ -73,7 +73,8 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
 
 function askAnotherServer(host, res, servers, maxRecursion) {
     var httpsEnabled = false,
-            url = 'http://' + servers[servers.length - 1];
+            url = 'http://' + servers[servers.length - 1],
+            missingServers = arrayDifference(config.servers, servers);
 
     maxRecursion--;
 
@@ -86,7 +87,7 @@ function askAnotherServer(host, res, servers, maxRecursion) {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
         },
-        timeout: 3000,
+        timeout: 3000 * maxRecursion, // Multiplied because if we don't a timeout of the recursion will occur
         json: {
             host: host,
             servers: servers,
@@ -96,7 +97,14 @@ function askAnotherServer(host, res, servers, maxRecursion) {
         var body;
         /* Shouldn't happen */
         if (err) {
-            httpsEnabled = false;
+            if (missingServers.length > 0) {
+                maxRecursion++;
+                servers.push(missingServers[0]);
+                askAnotherServer(host, res, servers, maxRecursion);
+                return;
+            } else{
+                httpsEnabled = false;
+            }
         } else {
             if (body.useHttps) {
                 httpsEnabled = true;
@@ -107,7 +115,6 @@ function askAnotherServer(host, res, servers, maxRecursion) {
         addOrUpdateCache(host, httpsEnabled);
         response(res, httpsEnabled, host);
         console.log(host + " (other server): " + httpsEnabled);
-
     });
 }
 
