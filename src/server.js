@@ -10,8 +10,7 @@ var http = require('http'),
              * Server domains and ports including the server running this code.  
              */
             servers: [
-                'localhost:8080',
-                'nicolasmesa.co:8080'
+                '54.172.166.62:443'
             ],
             /*
              * When this server checks if a site runs https and it doesn't, it 

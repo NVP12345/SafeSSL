@@ -4,6 +4,7 @@
 	"description": "Tell if a domain supports HTTPS",
 	"repository": "https://github.com/NVP12345/SafeSSL.git",
 	"dependencies": {
-		"request": "*"
+		"request": "*",
+		"redis": "*"
 	}
 }
