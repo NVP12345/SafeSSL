@@ -2,7 +2,8 @@ var http = require('http'),
         url = require('url'),
         request = require('request'),
         port = process.argv[2] || 8080,
-        urlCache = {},
+        redis = require('redis'),
+        redisClient = redis.createClient(),
         config = {
             cacheTimeout: 864000,
             /*
@@ -23,12 +24,16 @@ var http = require('http'),
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
     var httpsEnabled,
-            cache = urlCache[host],
+            cache,
             timestamp = (new Date).getTime(),
             missingServers = arrayDifference(config.servers, servers);
 
+    redisClient.get(host, function(err, reply) {
+        cache = reply;
+    });
+
     if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
-        httpsEnabled = urlCache[host].httpsEnabled;
+        httpsEnabled = cache.httpsEnabled;
         console.log(host + " (cached): " + httpsEnabled);
         response(res, httpsEnabled, host);
     } else {
@@ -132,15 +137,14 @@ function arrayDifference(arr1, arr2) {
     return ret;
 }
 
-function clearCache() {
-    urlCache = {};
-}
-
 function addOrUpdateCache(url, https) {
-    urlCache[url] = {
-        httpsEnabled: https,
-        timestamp: (new Date()).getTime()
-    };
+    redisClient.set(
+        url,
+        {
+            httpsEnabled: https,
+            timestamp: (new Date()).getTime()
+        }
+    );
 }
 
 function response(res, useHttp, host) {
