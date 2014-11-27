@@ -25,9 +25,15 @@ var http = require('http'),
 function isHttpsEnabled(host, res, servers, maxRecursion) {
     var httpsEnabled,
             timestamp = (new Date).getTime(),
+            cache = null,
             missingServers = arrayDifference(config.servers, servers);
 
-    redisClient.get(host, function(err, cache) {
+    redisClient.get(host, function(err, reply) {
+        if (reply) {
+            cache = JSON.parse(reply);
+        }
+        
+        
         if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
             httpsEnabled = cache.httpsEnabled;
             console.log(host + " (cached): " + httpsEnabled);
@@ -137,11 +143,11 @@ function arrayDifference(arr1, arr2) {
 function addOrUpdateCache(url, https) {
     redisClient.set(
             url,
-            {
+            JSON.stringify({
                 httpsEnabled: https,
                 timestamp: (new Date()).getTime()
-            }
-    );
+            })
+            );
 }
 
 function response(res, useHttp, host) {
