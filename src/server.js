@@ -24,54 +24,51 @@ var http = require('http'),
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
     var httpsEnabled,
-            cache,
             timestamp = (new Date).getTime(),
             missingServers = arrayDifference(config.servers, servers);
 
-    redisClient.get(host, function(err, reply) {
-        cache = reply;
+    redisClient.get(host, function(err, cache) {
+        if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
+            httpsEnabled = cache.httpsEnabled;
+            console.log(host + " (cached): " + httpsEnabled);
+            response(res, httpsEnabled, host);
+        } else {
+            request({
+                url: "https://" + host,
+                followRedirect: function(intermediateResponse) {
+                    return true;
+                },
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
+                },
+                timeout: 2000 //Set to 2 seconds. Set accordingly. Could also come as a param from the client so he can choose how how long to wait
+            },
+            function(error, resspone, body) {
+
+                if (error) {
+                    // Normally no support for https but should check which error it is. If the port is closed, it means no https
+                    httpsEnabled = false;
+                } else {
+                    httpsEnabled = true;
+                }
+
+                if (resspone && (resspone.statusCode == 301 || resspone.statusCode == 302)) {
+                    httpsEnabled = false;
+                }
+
+
+                if (httpsEnabled || missingServers.length == 0 || maxRecursion == 0) {
+                    addOrUpdateCache(host, httpsEnabled);
+                    response(res, httpsEnabled, host);
+                    console.log(host + ": " + httpsEnabled);
+
+                } else {
+                    servers.push(missingServers[0]);
+                    askAnotherServer(host, res, servers, maxRecursion);
+                }
+            });
+        }
     });
-
-    if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
-        httpsEnabled = cache.httpsEnabled;
-        console.log(host + " (cached): " + httpsEnabled);
-        response(res, httpsEnabled, host);
-    } else {
-        request({
-            url: "https://" + host,
-            followRedirect: function(intermediateResponse) {
-                return true;
-            },
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
-            },
-            timeout: 2000 //Set to 2 seconds. Set accordingly. Could also come as a param from the client so he can choose how how long to wait
-        },
-        function(error, resspone, body) {
-
-            if (error) {
-                // Normally no support for https but should check which error it is. If the port is closed, it means no https
-                httpsEnabled = false;
-            } else {
-                httpsEnabled = true;
-            }
-
-            if (resspone && (resspone.statusCode == 301 || resspone.statusCode == 302)) {
-                httpsEnabled = false;
-            }
-
-
-            if (httpsEnabled || missingServers.length == 0 || maxRecursion == 0) {
-                addOrUpdateCache(host, httpsEnabled);
-                response(res, httpsEnabled, host);
-                console.log(host + ": " + httpsEnabled);
-
-            } else {
-                servers.push(missingServers[0]);
-                askAnotherServer(host, res, servers, maxRecursion);
-            }
-        });
-    }
 }
 
 function askAnotherServer(host, res, servers, maxRecursion) {
@@ -139,11 +136,11 @@ function arrayDifference(arr1, arr2) {
 
 function addOrUpdateCache(url, https) {
     redisClient.set(
-        url,
-        {
-            httpsEnabled: https,
-            timestamp: (new Date()).getTime()
-        }
+            url,
+            {
+                httpsEnabled: https,
+                timestamp: (new Date()).getTime()
+            }
     );
 }
 
