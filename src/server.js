@@ -5,7 +5,7 @@ var http = require('http'),
         redis = require('redis'),
         redisClient = redis.createClient(),
         config = {
-            cacheTimeout: 864000,
+            cacheTimeout: 864000000,
             /*
              * Server domains and ports including the server running this code.  
              */
