@@ -11,7 +11,8 @@ var http = require('http'),
              */
             servers: [
                 '54.172.166.62:443',
-                '54.69.192.195:443'
+                '54.69.192.195:443',
+                '54.67.50.152:443'
             ],
             /*
              * When this server checks if a site runs https and it doesn't, it 
