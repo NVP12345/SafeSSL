@@ -30,7 +30,7 @@ After this, the servers can be started by issuing the command
 
 <code>$ node server.js [port]</code>
 
-Where port is the port in which the server should listen on.
+Where port is the port in which the server should listen on (default 8080).
 
 **Adding multiple servers**
 
