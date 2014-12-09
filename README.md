@@ -71,5 +71,5 @@ The extension is highly configurable. It can be configured by clicking on the li
 **Actions**
 - **Add domain**: The user can add a domain to the cache manually and specify if the domain supports https or not. For example, some sites support https but don't work very well when they are browsed using this protocol. In this case, the user can add the domain manually making the *HTTPS supported* field = *No*. In this case, any subsequent request to that web site won't be redirected to https.
 - **Query domain**: The user can query a domain manually and the extension will return the value that it has in its cache (if it exists) or will ask one of the servers.
-- **Clear cache**: The user can also clear the cache to restart the process fo recolecting information. Note that clearing the cache will slow down the http requests while it collects the information.
+- **Clear cache**: The user can also clear the cache to restart the process for recollecting information. Note that clearing the cache will slow down the http requests while it collects the information.
 
