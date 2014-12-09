@@ -44,6 +44,11 @@ This configuration parameter lets you specify how many servers to ask (in case o
 
 This field specifies the communication protocol that should be used between the servers. For development purposes, it is ok to have it as *http://* but it should be changed to *https://* for production environments to make sure that the communication between the servers is encrypted and an attacker can't change the requests.
 
+
+For production environments we recommend using Nginx to manage the SSL part (listening on port 443) and the server listening on another port. This can be done easily following this tutorial:
+
+http://www.sitepoint.com/configuring-nginx-ssl-node-js/
+
 Extension
 =======
 When installed, it will intercept every http request to see if the web site supports https. If it does, the request will be redirected to https to avoid an SSLStrip attack.
