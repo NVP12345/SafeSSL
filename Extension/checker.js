@@ -52,7 +52,8 @@ function checkHttpsCapability(host) {
             httpsEnabled;
 
     // Make synchronouse https request to our server
-    xhr.open("POST", "http://localhost:8080", false);
+//    xhr.open("POST", "http://54.172.166.62:443", false);
+    xhr.open("POST", config.protocol + config.rootServer, false);
     xhr.setRequestHeader("Content-Type", "Application/json");
 
     params.host = host;
@@ -79,10 +80,14 @@ function checkHttpsCapability(host) {
 
     xhr.onerror = function(e) {
         console.log('Error');
-        httpsEnabled = false;
+        httpsEnabled = -1;
     };
 
-    xhr.send(JSON.stringify(params));
+    try {
+        xhr.send(JSON.stringify(params));
+    } catch (e) {
+        httpsEnabled = -1;
+    }
 
     return httpsEnabled;
 }
@@ -99,7 +104,10 @@ function isHttpsEnabled(host) {
         httpsEnabled = urlCache[host].httpsEnabled;
     } else {
         httpsEnabled = checkHttpsCapability(host);
-        addOrUpdateCache(host, httpsEnabled);
+
+        if (httpsEnabled != -1) {
+            addOrUpdateCache(host, httpsEnabled);
+        }
     }
 
     return httpsEnabled;
@@ -132,24 +140,18 @@ chrome.tabs.onUpdated.addListener(onUpdatedListener);
 chrome.tabs.onRemoved.addListener(onRemovedListener);
 
 if (!config) {
-    config = {
-        enabled: true,
-        enabled404: true,
-        cacheTimeout: 86400000,
-        redirectTimeout: 3000,
-    };
-    //localStorage.setItem("config", JSON.stringify(config));
+    restoreDefaults();
 }
 
 /*
- * Check if a request returned a 404. If it did, we 
+ * Check if a request returned an error code. If it did, we 
  * check to see if we redirected the request and if we did, that could mean that
  * the resource is only available through http. We redirect to http. 
  * 
  * Note that the attacker can't forge this response because the content is still 
  * going through https. An attacker could still do some damage with pages that 
  * have this problem. For example, if a script is only accessible through http, 
- * an attacker might wait until the script is request through http and he can 
+ * an attacker might wait until the script is requested through http and he can 
  * inject malicious code to change for example all urls to http using javascript.
  * Once the user makes the request, we will redirect it again to https so 
  * we should be safe in the sslstrip side.
@@ -164,16 +166,12 @@ chrome.webRequest.onHeadersReceived.addListener(function(details) {
             numberRegex = /HTTP\/[01]\.[019]\s([0-9]+)\s.*/,
             number;
 
-//    if (details.type == "main_frame" || details.type == 'xmlhttprequest' || details.type == 'other') {
-//        return;
-//    }
-
     number = numberRegex.exec(statusLine);
 
     if (number) {
         number = parseInt(number[1]);
 
-        if (number == 404 && redirectedRequests[details.requestId]) {
+        if (number > 400 && number < 600 && redirectedRequests[details.requestId]) {
             return {redirectUrl: url.replace("https", "http")};
         }
     }
@@ -185,7 +183,7 @@ chrome.webRequest.onHeadersReceived.addListener(function(details) {
  * servers accept https. It's only done for 200's but could be done for every
  * status code, after all, the server answered using https regardless of the 
  * code. We don't put the blocking directive to avoid delaying the request
- */ 
+ */
 chrome.webRequest.onHeadersReceived.addListener(function(details) {
     if (!config.enabled) {
         return;
@@ -220,7 +218,8 @@ chrome.webRequest.onBeforeRequest.addListener(
                     tabId = details.tabId,
                     tab = tabs[tabId],
                     urlChange = false,
-                    urlNoProto = url.replace("http://", "").replace("https://", "");
+                    urlNoProto = url.replace("http://", "").replace("https://", ""),
+                    httpsEnabled;
 
 
 
@@ -281,8 +280,15 @@ chrome.webRequest.onBeforeRequest.addListener(
                 return {cancel: false};
             }
 
+            httpsEnabled = isHttpsEnabled(parsedUrl.host);
 
-            if (isHttpsEnabled(parsedUrl.host)) {
+            if (httpsEnabled == -1) {
+                /*
+                 * If we couldn't comunicate with out server. Could also try using
+                 * https first before we cancel the request.
+                 */
+                return {cancel: true};
+            } else if (httpsEnabled) {
                 redirectUrl = url.replace("http", "https");
 
                 if (config.enabled404) {
@@ -311,4 +317,19 @@ function getCache() {
 
 function getConfig() {
     return config;
+}
+
+function restoreDefaults() {
+    config = {
+        enabled: true,
+        enabled404: true,
+        cacheTimeout: 86400000,
+        redirectTimeout: 3000,
+        /*
+         * Should be https for production. http is for development and testing
+         * environments
+         */
+        protocol: 'http://',
+        rootServer: 'localhost:8080'
+    };
 }

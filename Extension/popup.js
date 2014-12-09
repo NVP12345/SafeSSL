@@ -2,6 +2,8 @@ setTimeout(function() {
     var bgPage = chrome.extension.getBackgroundPage(),
             enabledCheckbox = document.getElementById('enabled'),
             enabled404Checkbox = document.getElementById('enabled-404'),
+            protocolToUseSelect = document.getElementById('protocol-to-use'),
+            rootServerTextfield = document.getElementById('root-server'),
             saveButton = document.getElementById('save-config-button'),
             timeoutField = document.getElementById('timeout'),
             redirectTimeoutField = document.getElementById('redirect-timeout'),
@@ -20,19 +22,21 @@ setTimeout(function() {
     redirectTimeoutField.value = conf.redirectTimeout;
     enabledCheckbox.checked = conf.enabled;
     enabled404Checkbox.checked = conf.enabled404;
+    protocolToUseSelect.value = conf.protocol;
+    rootServerTextfield.value = conf.rootServer;
 
     enableDisableInputs(conf.enabled);
 
     enabledCheckbox.addEventListener('change', function() {
         var msg = '';
         if (enabledCheckbox.checked) {
-            conf.enabled = true;            
+            conf.enabled = true;
             msg = "SafeSSL enabled";
         } else {
             conf.enabled = false;
             msg = "SafeSSL disabled";
         }
-        
+
         enableDisableInputs(conf.enabled);
         notify(msg);
     });
@@ -46,7 +50,7 @@ setTimeout(function() {
             conf.enabled404 = false;
             msg = 'Redirect to http on 404 disabled';
         }
-        
+
         notify(msg);
     });
 
@@ -80,6 +84,16 @@ setTimeout(function() {
             notification.push('Redirect timeout saved');
         } else {
             notification.push('Redirect timeout save failed');
+        }
+
+        if (conf.protocol != protocolToUseSelect.value) {
+            conf.protocol = protocolToUseSelect.value;
+            notification.push('Protocol changed');
+        }
+        
+        if (rootServerTextfield.value != conf.rootServer){
+            conf.rootServer = rootServerTextfield.value;
+            notification.push('Root server changed');
         }
 
         notify(notification.join('<br/>'));

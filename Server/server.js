@@ -10,9 +10,8 @@ var http = require('http'),
              * Server domains and ports including the server running this code.  
              */
             servers: [
-                '54.172.166.62:443',
-                '54.69.192.195:443',
-                '54.67.50.152:443'
+                  //'localhost:8080',
+                  //'localhost:8081'
             ],
             /*
              * When this server checks if a site runs https and it doesn't, it 
@@ -20,7 +19,15 @@ var http = require('http'),
              * until either this threshold is met, one of the servers returns 
              * true or there are no more servers
              */
-            maxRecursion: 3
+            maxRecursion: 3,
+            
+            /*
+             * Should be https in production environments to make sure that the 
+             * connection is encrypted and an attacker can't change the communiction
+             * between our servers. http is valid for development and testing
+             * purposes
+             */
+            protocol: 'http://'
         };
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
@@ -80,7 +87,7 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
 
 function askAnotherServer(host, res, servers, maxRecursion) {
     var httpsEnabled = false,
-            url = 'http://' + servers[servers.length - 1],
+            url = config.protocol + servers[servers.length - 1],
             missingServers = arrayDifference(config.servers, servers);
 
     maxRecursion--;

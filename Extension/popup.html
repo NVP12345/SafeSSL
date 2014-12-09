@@ -29,12 +29,22 @@
                 </tr>
                 <tr>
                     <td>
-                        <label for="enabled-404" title="Enable redirect back to http when a redirected request to https returns 404">
-                            Redirect to http on 404
+                        <label for="enabled-404" title="Enable redirect back to http when a redirected request to https returns an error code">
+                            Redirect to http on error
                         </label>
                     </td>
                     <td>
                         <input type="checkbox" name="enabled-404" id="enabled-404"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="root-server" title="Server to ask if a site supports https">
+                            Root server
+                        </label>
+                    </td>
+                    <td>
+                        <input type="text" name="root-server" id="root-server" placeholder="e.g. localhost:8080"/>
                     </td>
                 </tr>
                 <tr>
@@ -55,6 +65,23 @@
                     </td>
                     <td>
                         <input type="text" name="redirect-timeout" id="redirect-timeout" value=""/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="protocol-to-use" title="Protocol to use for the communication with the servers">
+                            Protocol
+                        </label>
+                    </td>
+                    <td>
+                        <select name="protocol-to-use" id="protocol-to-use">
+                            <option value="https://">
+                                Https
+                            </option>
+                            <option value="http://">
+                                Http
+                            </option>
+                        </select>
                     </td>
                 </tr>
                 <tr>

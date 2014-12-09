@@ -1,7 +1,12 @@
 {
 	"name": "SafeSSL",
 	"version": "1.0.0",
-	"description": "Tell if a domain supports HTTPS",
+	"description": "Cluster of servers that verify if a domain supports https or not",
+	"keywords": [
+		"SSLStrip",
+		"Security",
+		"https"
+	],
 	"repository": "https://github.com/NVP12345/SafeSSL.git",
 	"dependencies": {
 		"request": "*",
