@@ -40,6 +40,10 @@ To add multiple servers, open the *servers.js* file add them to the <code>server
 
 This configuration parameter lets you specify how many servers to ask (in case of an unsuccessful https request) before giving up and telling the client that the site doesn't support https.
 
+**doParallelRecursions**
+
+If this configuration parameter is set to <code>true</code> the other servers will be asked in parallel. If one of them returns that the site supports https, the response will be sent right away to the client saying that https is supported. If none of the servers return that https is supported, it will wait for all servers to respond before telling sending the response to the client.
+
 **protocol**
 
 This field specifies the communication protocol that should be used between the servers. For development purposes, it is ok to have it as *http://* but it should be changed to *https://* for production environments to make sure that the communication between the servers is encrypted and an attacker can't change the requests.
