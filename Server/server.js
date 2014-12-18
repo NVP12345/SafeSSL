@@ -10,8 +10,9 @@ var http = require('http'),
              * Server domains and ports including the server running this code.  
              */
             servers: [
-                  //'localhost:8080',
-                  //'localhost:8081'
+//                'localhost:8080',
+//                'localhost:8081',
+//                'localhost:8082'
             ],
             /*
              * When this server checks if a site runs https and it doesn't, it 
@@ -20,7 +21,13 @@ var http = require('http'),
              * true or there are no more servers
              */
             maxRecursion: 3,
-            
+            /*
+             * If set to true, will ask the other servers in parallel when a server
+             * checks if a site runs https and it doesn't.
+             * 
+             * Saves some time but will ask all servers.
+             */
+            doParallelRecursions: false,
             /*
              * Should be https in production environments to make sure that the 
              * connection is encrypted and an attacker can't change the communiction
@@ -40,8 +47,8 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
         if (reply) {
             cache = JSON.parse(reply);
         }
-        
-        
+
+
         if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
             httpsEnabled = cache.httpsEnabled;
             console.log(host + " (cached): " + httpsEnabled);
@@ -76,6 +83,8 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
                     response(res, httpsEnabled, host);
                     console.log(host + ": " + httpsEnabled);
 
+                } else if (config.doParallelRecursions) {
+                    askOtherServersParallel(host, res, servers);
                 } else {
                     servers.push(missingServers[0]);
                     askAnotherServer(host, res, servers, maxRecursion);
@@ -83,6 +92,61 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
             });
         }
     });
+}
+
+function askOtherServersParallel(host, res, servers) {
+    var httpsEnabled = false,
+            url,
+            missingServers = arrayDifference(config.servers, servers),
+            resSent = false,
+            numServers = missingServers.length > config.maxRecursion ? config.maxRecursion : missingServers.length,
+            i,
+            responses = 0;
+
+    for (i = 0; i < numServers; i++) {
+        url = config.protocol + missingServers[i];
+        
+        request({
+            method: 'POST',
+            url: url,
+            followRedirect: function(intermediateResponse) {
+                return true;
+            },
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
+            },
+            timeout: 3000, // Multiplied because if we don't a timeout of the recursion will occur
+            json: {
+                host: host,
+                servers: servers,
+                maxRecursion: 0
+            }
+        }, function(err, re, body) {
+            var body;
+            responses++;
+            /* Shouldn't happen */
+            if (err) {
+                httpsEnabled = false;
+
+                if (responses < numServers) {
+                    return;
+                }
+            } else {
+                if (body.useHttps) {
+                    httpsEnabled = true;
+                } else if (responses < numServers) {
+                    return;
+                }
+            }
+
+            if (!resSent) {
+                resSent = true;
+                addOrUpdateCache(host, httpsEnabled);
+                response(res, httpsEnabled, host);
+                console.log(host + " (other server): " + httpsEnabled);
+            }
+        });
+    }
 }
 
 function askAnotherServer(host, res, servers, maxRecursion) {
