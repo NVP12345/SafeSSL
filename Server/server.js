@@ -4,10 +4,9 @@ var http = require('http'),
         port = process.argv[2] || 8080,
         redis = require('redis'),
         redisClient = redis.createClient(),
+        broadcastQueries = [],
         config = {
-
             cacheTimeout: 864000000,
-
             /*
              * Server domains and ports including the server running this code.  
              */
@@ -16,7 +15,6 @@ var http = require('http'),
 //                'localhost:8081',
 //                'localhost:8082'
             ],
-
             /*
              * When this server checks if a site runs https and it doesn't, it 
              * will ask another server. That server will ask another and another
@@ -24,7 +22,6 @@ var http = require('http'),
              * true or there are no more servers
              */
             maxRecursion: 3,
-
             /*
              * If set to true, will ask the other servers in parallel when a server
              * checks if a site runs https and it doesn't.
@@ -32,7 +29,6 @@ var http = require('http'),
              * Saves some time but will ask all servers.
              */
             doParallelRecursions: false,
-
             /*
              * Should be https in production environments to make sure that the 
              * connection is encrypted and an attacker can't change the communiction
@@ -40,12 +36,21 @@ var http = require('http'),
              * purposes.
              */
             protocol: 'http://',
-
             /*
              * Used in production environment over HTTPS to facilitate communication
              * between servers.
              */
-            secretKey: '8ed1c3ae-dfd0-4f72-b748-292040e357ed'
+            secretKey: '8ed1c3ae-dfd0-4f72-b748-292040e357ed',
+            /*
+             * If set to true, will broadcast the result of its query to the other
+             * servers to improve caching
+             */
+            broadcast: false,
+            /*
+             * Number of miliseconds between broadcasts to servers if config.broadcast
+             * is set to true
+             */
+            broadcastInterval: 30000
         };
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
@@ -116,7 +121,7 @@ function askOtherServersParallel(host, res, servers) {
 
     for (i = 0; i < numServers; i++) {
         url = config.protocol + missingServers[i];
-        
+
         request({
             method: 'POST',
             url: url,
@@ -228,11 +233,14 @@ function addOrUpdateCache(url, useHttps, broadcast) {
                 httpsEnabled: useHttps,
                 timestamp: (new Date()).getTime()
             })
-    );
+            );
 
-    if (broadcast) {
+    if (broadcast && config.broadcast) {
         // server is root
-        broadcastResult(url, useHttps);
+        broadcastQueries.push({
+            host: url,
+            useHttps: useHttps
+        });
     }
 }
 
@@ -240,8 +248,27 @@ function sendResponse(res, useHttp, host) {
     res.end(JSON.stringify({useHttps: useHttp}));
 }
 
-function broadcastResult(host, useHttps) {
-    for (var i = 0; i < config.servers.length; i ++) {
+/*
+ * Called with setTimeout instead of setInterval to avoid to intervals merging. 
+ * Instead, this will do all the work that needs to be done and then, rest for 
+ * the specified amount of seconds
+ */
+function callBroadcastResult() {
+    var queries = [];
+
+    if (broadcastQueries.length) {
+        while (broadcastQueries.length) {
+            queries.push(broadcastQueries.pop());
+        }
+
+        broadcastResult(queries);
+    }
+
+    setTimeout(callBroadcastResult, config.broadcastInterval);
+}
+
+function broadcastResult(hosts) {
+    for (var i = 0; i < config.servers.length; i++) {
         request({
             method: 'POST',
             url: config.protocol + config.servers[i],
@@ -253,11 +280,11 @@ function broadcastResult(host, useHttps) {
             },
             timeout: 3000,
             json: {
-                host: host,
+                host: null,
+                broadcastHosts: hosts,
                 servers: [],
                 maxRecursion: 0,
                 broadcast: true,
-                broadcastResult: useHttps,
                 secretKey: config.secretKey
             }
         }, function(err, re, body) {
@@ -283,10 +310,10 @@ var requestListener = function(req, res) {
                      */
                     server = req.headers.host,
                     host = post.host,
+                    broadcastHosts = post.broadcastHosts,
                     servers = post.servers || [],
                     maxRecursion = post.maxRecursion,
                     broadcast = post.broadcast,
-                    broadcastResult = post.broadcastResult,
                     secretKey = post.secretKey;
 
 
@@ -299,7 +326,9 @@ var requestListener = function(req, res) {
             }
 
             if (broadcast && secretKey == config.secretKey) {
-                addOrUpdateCache(host, broadcastResult, false);
+                broadcastHosts.forEach(function(query) {
+                    addOrUpdateCache(query.host, query.useHttps, false);
+                });
             } else {
                 isHttpsEnabled(host, res, servers, maxRecursion);
             }
@@ -310,3 +339,7 @@ var requestListener = function(req, res) {
 
 var server = http.createServer(requestListener);
 server.listen(port);
+
+if (config.broadcast) {
+    callBroadcastResult();
+}
