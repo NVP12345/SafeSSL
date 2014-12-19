@@ -49,6 +49,18 @@ If this configuration parameter is set to <code>true</code> the other servers wi
 This field specifies the communication protocol that should be used between the servers. For development purposes, it is ok to have it as *http://* but it should be changed to *https://* for production environments to make sure that the communication between the servers is encrypted and an attacker can't change the requests.
 
 
+**secretKey**
+
+This field is used in production environments for authentication between servers
+
+**broadcast**
+
+If this configuration parameter is set to <code>true</code>, the results of new queries (that haven't been added to the cache) are broadcasted to all the servers proactively updating their caches.
+
+**broadcastInterval**
+
+Thie field denotes the number of milliseconds thaten between broadcasts
+
 For production environments we recommend using Nginx to manage the SSL part (listening on port 443) and the server listening on another port. This can be done easily following this tutorial:
 
 http://www.sitepoint.com/configuring-nginx-ssl-node-js/
