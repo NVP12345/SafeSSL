@@ -30,7 +30,7 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
     if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
         httpsEnabled = urlCache[host].httpsEnabled;
         console.log(host + " (cached): " + httpsEnabled);
-        response(res, httpsEnabled, host);
+        sendResponse(res, httpsEnabled, host);
     } else {
         request({
             url: "https://" + host,
@@ -42,7 +42,7 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
             },
             timeout: 2000 //Set to 2 seconds. Set accordingly. Could also come as a param from the client so he can choose how how long to wait
         },
-        function(error, resspone, body) {
+        function(error, response, body) {
 
             if (error) {
                 // Normally no support for https but should check which error it is. If the port is closed, it means no https
@@ -51,14 +51,14 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
                 httpsEnabled = true;
             }
 
-            if (resspone && (resspone.statusCode == 301 || resspone.statusCode == 302)) {
+            if (response && (response.statusCode == 301 || response.statusCode == 302)) {
                 httpsEnabled = false;
             }
 
 
             if (httpsEnabled || missingServers.length == 0 || maxRecursion == 0) {
                 addOrUpdateCache(host, httpsEnabled);
-                response(res, httpsEnabled, host);
+                sendResponse(res, httpsEnabled, host);
                 console.log(host + ": " + httpsEnabled);
 
             } else {
@@ -92,7 +92,6 @@ function askAnotherServer(host, res, servers, maxRecursion) {
             maxRecursion: maxRecursion
         }
     }, function(err, re, body) {
-        var body;
         /* Shouldn't happen */
         if (err) {
             if (missingServers.length > 0) {
@@ -100,10 +99,8 @@ function askAnotherServer(host, res, servers, maxRecursion) {
                 servers.push(missingServers[0]);
                 askAnotherServer(host, res, servers, maxRecursion);
             } else {
-                httpsEnabled = false;
-
                 addOrUpdateCache(host, httpsEnabled);
-                response(res, httpsEnabled, host);
+                sendResponse(res, httpsEnabled, host);
                 console.log(host + ": " + httpsEnabled);
             }
             return;
@@ -115,7 +112,7 @@ function askAnotherServer(host, res, servers, maxRecursion) {
 
 
         addOrUpdateCache(host, httpsEnabled);
-        response(res, httpsEnabled, host);
+        sendResponse(res, httpsEnabled, host);
         console.log(host + " (other server): " + httpsEnabled);
     });
 }
@@ -132,10 +129,6 @@ function arrayDifference(arr1, arr2) {
     return ret;
 }
 
-function clearCache() {
-    urlCache = {};
-}
-
 function addOrUpdateCache(url, https) {
     urlCache[url] = {
         httpsEnabled: https,
@@ -143,7 +136,7 @@ function addOrUpdateCache(url, https) {
     };
 }
 
-function response(res, useHttp, host) {
+function sendResponse(res, useHttp, host) {
     res.end(JSON.stringify({useHttps: useHttp}));
 }
 
