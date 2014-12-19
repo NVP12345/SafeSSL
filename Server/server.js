@@ -5,7 +5,9 @@ var http = require('http'),
         redis = require('redis'),
         redisClient = redis.createClient(),
         config = {
+
             cacheTimeout: 864000000,
+
             /*
              * Server domains and ports including the server running this code.  
              */
@@ -14,6 +16,7 @@ var http = require('http'),
 //                'localhost:8081',
 //                'localhost:8082'
             ],
+
             /*
              * When this server checks if a site runs https and it doesn't, it 
              * will ask another server. That server will ask another and another
@@ -21,6 +24,7 @@ var http = require('http'),
              * true or there are no more servers
              */
             maxRecursion: 3,
+
             /*
              * If set to true, will ask the other servers in parallel when a server
              * checks if a site runs https and it doesn't.
@@ -28,13 +32,20 @@ var http = require('http'),
              * Saves some time but will ask all servers.
              */
             doParallelRecursions: false,
+
             /*
              * Should be https in production environments to make sure that the 
              * connection is encrypted and an attacker can't change the communiction
              * between our servers. http is valid for development and testing
-             * purposes
+             * purposes.
              */
-            protocol: 'http://'
+            protocol: 'http://',
+
+            /*
+             * Used in production environment over HTTPS to facilitate communication
+             * between servers.
+             */
+            secretKey: '8ed1c3ae-dfd0-4f72-b748-292040e357ed'
         };
 
 function isHttpsEnabled(host, res, servers, maxRecursion) {
@@ -52,7 +63,7 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
         if (cache && timestamp < cache.timestamp + config.cacheTimeout) {
             httpsEnabled = cache.httpsEnabled;
             console.log(host + " (cached): " + httpsEnabled);
-            response(res, httpsEnabled, host);
+            sendResponse(res, httpsEnabled, host);
         } else {
             request({
                 url: "https://" + host,
@@ -64,7 +75,7 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
                 },
                 timeout: 2000 //Set to 2 seconds. Set accordingly. Could also come as a param from the client so he can choose how how long to wait
             },
-            function(error, resspone, body) {
+            function(error, response, body) {
 
                 if (error) {
                     // Normally no support for https but should check which error it is. If the port is closed, it means no https
@@ -73,14 +84,14 @@ function isHttpsEnabled(host, res, servers, maxRecursion) {
                     httpsEnabled = true;
                 }
 
-                if (resspone && (resspone.statusCode == 301 || resspone.statusCode == 302)) {
+                if (response && (response.statusCode == 301 || response.statusCode == 302)) {
                     httpsEnabled = false;
                 }
 
 
                 if (httpsEnabled || missingServers.length == 0 || maxRecursion == 0) {
-                    addOrUpdateCache(host, httpsEnabled);
-                    response(res, httpsEnabled, host);
+                    addOrUpdateCache(host, httpsEnabled, maxRecursion == config.maxRecursion);
+                    sendResponse(res, httpsEnabled, host);
                     console.log(host + ": " + httpsEnabled);
 
                 } else if (config.doParallelRecursions) {
@@ -115,7 +126,7 @@ function askOtherServersParallel(host, res, servers) {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
             },
-            timeout: 3000, // Multiplied because if we don't a timeout of the recursion will occur
+            timeout: 3000,
             json: {
                 host: host,
                 servers: servers,
@@ -126,8 +137,6 @@ function askOtherServersParallel(host, res, servers) {
             responses++;
             /* Shouldn't happen */
             if (err) {
-                httpsEnabled = false;
-
                 if (responses < numServers) {
                     return;
                 }
@@ -141,8 +150,8 @@ function askOtherServersParallel(host, res, servers) {
 
             if (!resSent) {
                 resSent = true;
-                addOrUpdateCache(host, httpsEnabled);
-                response(res, httpsEnabled, host);
+                addOrUpdateCache(host, httpsEnabled, true);
+                sendResponse(res, httpsEnabled, host);
                 console.log(host + " (other server): " + httpsEnabled);
             }
         });
@@ -182,8 +191,8 @@ function askAnotherServer(host, res, servers, maxRecursion) {
             } else {
                 httpsEnabled = false;
 
-                addOrUpdateCache(host, httpsEnabled);
-                response(res, httpsEnabled, host);
+                addOrUpdateCache(host, httpsEnabled, maxRecursion == config.maxRecursion);
+                sendResponse(res, httpsEnabled, host);
                 console.log(host + ": " + httpsEnabled);
             }
             return;
@@ -194,8 +203,8 @@ function askAnotherServer(host, res, servers, maxRecursion) {
         }
 
 
-        addOrUpdateCache(host, httpsEnabled);
-        response(res, httpsEnabled, host);
+        addOrUpdateCache(host, httpsEnabled, maxRecursion == config.maxRecursion);
+        sendResponse(res, httpsEnabled, host);
         console.log(host + " (other server): " + httpsEnabled);
     });
 }
@@ -212,18 +221,49 @@ function arrayDifference(arr1, arr2) {
     return ret;
 }
 
-function addOrUpdateCache(url, https) {
+function addOrUpdateCache(url, useHttps, broadcast) {
     redisClient.set(
             url,
             JSON.stringify({
-                httpsEnabled: https,
+                httpsEnabled: useHttps,
                 timestamp: (new Date()).getTime()
             })
-            );
+    );
+
+    if (broadcast) {
+        // server is root
+        broadcastResult(url, useHttps);
+    }
 }
 
-function response(res, useHttp, host) {
+function sendResponse(res, useHttp, host) {
     res.end(JSON.stringify({useHttps: useHttp}));
+}
+
+function broadcastResult(host, useHttps) {
+    for (var i = 0; i < config.servers.length; i ++) {
+        request({
+            method: 'POST',
+            url: config.protocol + config.servers[i],
+            followRedirect: function(intermediateResponse) {
+                return true;
+            },
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36'
+            },
+            timeout: 3000,
+            json: {
+                host: host,
+                servers: [],
+                maxRecursion: 0,
+                broadcast: true,
+                broadcastResult: useHttps,
+                secretKey: config.secretKey
+            }
+        }, function(err, re, body) {
+            // no need to validate the response
+        });
+    }
 }
 
 var requestListener = function(req, res) {
@@ -244,7 +284,10 @@ var requestListener = function(req, res) {
                     server = req.headers.host,
                     host = post.host,
                     servers = post.servers || [],
-                    maxRecursion = post.maxRecursion;
+                    maxRecursion = post.maxRecursion,
+                    broadcast = post.broadcast,
+                    broadcastResult = post.broadcastResult,
+                    secretKey = post.secretKey;
 
 
             if (servers.length == 0) {
@@ -255,7 +298,11 @@ var requestListener = function(req, res) {
                 maxRecursion = config.maxRecursion;
             }
 
-            isHttpsEnabled(host, res, servers, maxRecursion);
+            if (broadcast && secretKey == config.secretKey) {
+                addOrUpdateCache(host, broadcastResult, false);
+            } else {
+                isHttpsEnabled(host, res, servers, maxRecursion);
+            }
         });
 
     }
